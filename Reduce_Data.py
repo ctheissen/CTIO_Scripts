@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/local/bin/env python3
 import numpy as np
 import sys, os, os.path, time, gc, glob
 from astropy.table import Table
@@ -11,13 +11,13 @@ from matplotlib.colors import LogNorm
 # WE CAN MAKE THIS SCRIPT BETTER BY PUTTING ALL THE FILES IN AN ARRAY AND THEN LOOKING AT HEADER INFO FOR EACH FILE TO DO EACH STEP
 
 # Things we need to manually set
-date = '20140321'
+date = '20140128'
 biasrange = range(29,46)
 gflatrange = range(1,8)
 rflatrange = range(8,15)
 iflatrange = range(15,22)
 zflatrange = range(22,29)
-imagerange = range(46,164)
+imagerange = range(46,500)
 
 # Things we don't need to change
 top = '/mnt/Resources/perseus/CTIO_Data/'
@@ -28,17 +28,19 @@ try: os.mkdir(reducedpath)
 except: pass
 
 ######################################################################################################### First we make a Master bias
-biasData = np.array([fits.getdata(top+date+'/'+date+'.{:0>3}.fits'.format(expId))[:,0:1034] for expId in biasrange])
+# Try to grab the file
+try: biasData = np.array([fits.getdata(top+date+'/'+date+'.{:0>3}.fits'.format(expId))[:,0:1034] for expId in biasrange])
+except:
+    print('Trying a different file name.')
+    pass
+try: biasData = np.array([fits.getdata(top+date+'/'+date+'.f{:0>3}.fits'.format(expId))[:,0:1034] for expId in biasrange])
+except: print('We do not know that filename')
+
+# Take the median across the cube
 bias = np.median(biasData, axis=0)
-#print(biasData2.shape)
-#print(biasData.shape)
-#print(bias.shape)
 
+# Write the master
 fits.writeto(reducedpath+"MasterBias.fits", bias, clobber=True)
-
-#im = plt.imshow(bias, norm=LogNorm())
-#plt.colorbar(im)
-#plt.show()
 ######################################################################################################### Now we do the flats 
 
 # Read in the Master Bias
@@ -46,6 +48,7 @@ MasterBias = fits.getdata(reducedpath+'MasterBias.fits')
 
 for band in ['g', 'r', 'i', 'z']: # do all the bands
 
+    # Make an empty list to put the arrays in
     flatList = []
     
     # Read the raw flat field exposure from disk
@@ -56,39 +59,29 @@ for band in ['g', 'r', 'i', 'z']: # do all the bands
             
     for expId in ran:
         
-        # Grab the file
-        flatRaw = fits.getdata(top+date+'/'+date+'.{:0>3}.fits'.format(expId))[:,0:1034]
-
-        ###### Perform some stats to find the bad pixels. 
-        ###### Try clipping the data using the median
-        flatRaw2 = stats.sigma_clip(flatRaw, 10)
+        # Try to grab the file
+        try: flatRaw = fits.getdata(top+date+'/'+date+'.{:0>3}.fits'.format(expId))[:,0:1034] # we are omitting bad pixels
+        except: pass
+        try: flatRaw = fits.getdata(top+date+'/'+date+'.f{:0>3}.fits'.format(expId))[:,0:1034] # we are omitting bad pixels
+        except: print('We do not know that filename')
             
-        # Save the masked array to a file so we can read it back later. Only do this on the first flat image
-        if expId == 1: flatRaw2.dump(reducedpath+'bad_pixels.pkl')
-    
         # The flatfield exposures need to be debiased, just like the data exposure
         dbFlat = flatRaw - MasterBias
             
         # Append our debiased flat field to the list
         flatList.append(dbFlat)
-        
+
+    # Convert to a Numpy array
     flatList2 = np.array(flatList)
 
     # Take the median of the flats
     flat = np.median(flatList2, axis=0)
 
-    # Should mask out bad pixels at some point!!!!
-
+    # Normalize
     normFlat = flat / np.median(flat.flatten())
-    
+
+    # Write the master flat
     fits.writeto(reducedpath+"Master_{0}_flat.fits".format(band), normFlat, clobber=True)
-    
-    #plt.imshow(flat[:,0:1034], norm=LogNorm())
-    #plt.imshow(normFlat[:,0:1034], norm=LogNorm())
-    #plt.colorbar()
-    #plt.hist(normFlat[:,0:1034].flatten(), bins=np.sqrt(len(normFlat[:,0:1034].flatten())), log=True, histtype='step')
-    #plt.show()
-    #sys.exit()
 
 ######################################################################################################### Now do the rest
 # First we need to figure out how many images reside in the directory
@@ -108,20 +101,25 @@ for i in imagerange: # Now we iterate through the rest of the images and apply c
     print('Doing image: %s'%i)
     #if i != 207: continue
 
+    # Try to grab the file
     try: hdr = fits.getheader(top+date+'/'+date+'.{:0>3}.fits'.format(i))
+    except: pass
+    try: hdr = fits.getheader(top+date+'/'+date+'.f{:0>3}.fits'.format(i))
     except: continue
-
+        
+    # Try to grab the file
     # Get the science data
-    scienceRaw = fits.getdata(top+date+'/'+date+'.{:0>3}.fits'.format(i))
-
+    try: scienceRaw = fits.getdata(top+date+'/'+date+'.{:0>3}.fits'.format(i))
+    except: pass
+    try: scienceRaw = fits.getdata(top+date+'/'+date+'.f{:0>3}.fits'.format(i))
+    except: print('We do not know that filename')
+        
     # Read the header to find out what band the image is of, we also want to keep the info
     band = hdr['FILTER2']
         
     # Change the header object
-    #print(hdr['OBJECT'])
     hdrobj = hdr['OBJECT']
     hdrobj2 = hdrobj+', REDUCED'
-    #print(hdrobj2)
     hdr['OBJECT'] = hdrobj2
 
     # Now we reduce the data
@@ -129,11 +127,11 @@ for i in imagerange: # Now we iterate through the rest of the images and apply c
     elif band == 'r': MasterFlat = Master_rFlat
     elif band == 'i': MasterFlat = Master_iFlat
     elif band == 'z': MasterFlat = Master_zFlat
-        
-    scienceRed = (scienceRaw[:,0:1034] - MasterBias) / MasterFlat
-    #print(scienceRaw.shape)
-    #print(scienceRed.shape)
 
+    # Reduce the raw science data
+    scienceRed = (scienceRaw[:,0:1034] - MasterBias) / MasterFlat
+
+    # Write the reduced data to file
     fits.writeto(reducedpath+date+'.{:0>3}.reduced.fits'.format(i), scienceRed, hdr, clobber=True)
         
         

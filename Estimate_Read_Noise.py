@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import numpy as np
 import sys, os, os.path, time, gc, glob, random
 from astropy.table import Table
@@ -7,8 +7,6 @@ import photutils as ph
 import astropy.io.fits as fits
 import astropy.stats as stats
 import matplotlib.pyplot as plt
-from astropy.visualization import SqrtStretch
-from astropy.visualization.mpl_normalize import ImageNormalize
 from matplotlib.colors import LogNorm
 
 # Start timing counter to see how fast it runs

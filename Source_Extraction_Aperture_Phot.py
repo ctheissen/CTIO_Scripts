@@ -91,7 +91,7 @@ def doPhot(image, median, Xs, Ys, hdr):
         if 100 - (flux1/flux2 *100) < 1:
             radius = float(i)
             break
-    if radius == None: radius=10 # This is a hack for really bad photometry (not recommended)
+    if radius == None: radius=14 # This is the optimal aperture size historically. This is just a fix for contaminted areas.
 
     fig = plt.figure(10, figsize=(12,12))
     ax = fig.add_subplot(111)
@@ -110,8 +110,9 @@ def doPhot(image, median, Xs, Ys, hdr):
     sigma_mag = 1.0857 * np.sqrt( phot_table['aperture_sum'].data*Gain + 2*np.pi*radius**2 * (median1*Gain + (RN*Gain)**2) ) / (phot_table['aperture_sum'].data*Gain)
     return inM, sigma_mag
 ######################################################################################################### Grab the bad pixel mask
-masked_array = np.load(top+'bad_pixels.pkl')
-mask = masked_array.mask
+#masked_array = np.load(top+'bad_pixels.pkl')
+#mask = masked_array.mask
+mask = np.load(top+'bad_pixels.pkl')
 ######################################################################################################### Grab the corrections
 Corr = ascii.read(reducedpath+'Corrections.txt')
 ######################################################################################################### Grab the list of objects

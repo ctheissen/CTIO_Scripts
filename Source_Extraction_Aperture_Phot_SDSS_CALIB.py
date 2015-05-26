@@ -2,13 +2,12 @@
 import numpy as np
 import scipy as sp
 import sys, os, os.path, time, gc, glob
-from astropy.table import Table
+from astropy.table import Table, hstack, vstack
 from astropy.io import ascii
 import photutils as ph
 import astropy.io.fits as fits
 import astropy.stats as stats
 import matplotlib.pyplot as plt
-from astropy.visualization.mpl_normalize import ImageNormalize
 from matplotlib.colors import LogNorm
 import pylab as py
 from astropy.wcs import WCS
@@ -94,9 +93,11 @@ def GetImage(image, mask):
     print('mean', 'median', 'std', 'BACKGROUND')
     print(mean, median, std)
 
-    # Remove the background
+    ## Remove the background
     imageDataRed = imageDataM - median
+    #imageDataRed = imageDataM # or do not
 
+    #return imageDataRed, median, ObjName, band, std, hdr, w
     return imageDataRed, median, ObjName, band, std, hdr, w
 
 ######################################################################################################### Function to match coords across images
@@ -139,9 +140,8 @@ def doPhot(image, median, Xs, Ys, hdr):
     image.filled(0)
 
     # Figure out how big the aperture should be (when the change is < 1% we can stop)
-    # WE CAN CLEAN THIS UP BY DOING MULTIPLE APERTURES AT ONCE AND COMPARING AT THE END, AS AN ENSEMBLE
     radii = []
-    for j in range(len(Xs)):
+    for j in range(len(Xs)): # Loop over every extracted source
         for i in range(1,20):
             apertures = ph.CircularAperture((Xs[j], Ys[j]), r=i)
             phot_table1 = ph.aperture_photometry(image, apertures)#, mask=mask)
@@ -151,13 +151,14 @@ def doPhot(image, median, Xs, Ys, hdr):
             flux2 = phot_table2['aperture_sum']
             if 100 - (flux1/flux2 *100) < 1:
                 radii.append(float(i))
-                #print('Aperture radius:', sp.stats.mode(radii))
                 break
+            
     # Now we grab the most common aperture size
-    #print(radii)
-    radius = sp.stats.mode(radii)[0][0]
-    #print(radius)
+    try: radius = sp.stats.mode(radii)[0][0]
+    except: radius = 10 # This is the typical optimal value
+    print('Radius size:', radius)
 
+    # Show the objects and the aperture size
     fig = plt.figure(10, figsize=(12,12))
     ax = fig.add_subplot(111)
     apertures = ph.CircularAperture((Xs,Ys), r=radius)
@@ -166,7 +167,9 @@ def doPhot(image, median, Xs, Ys, hdr):
     apertures.plot(color='red', lw=1.5, alpha=0.5)
     plt.show()
 
-    apertures = ph.CircularAperture((Xs, Ys), r=radius)
+    # Now let's do the photometry
+    apertures = ph.CircularAperture((Xs, Ys), r=radius) # Create circular apertures for each source
+ 
     phot_table = ph.aperture_photometry(image, apertures)#, mask=mask)
     #print(phot_table)
 
@@ -180,8 +183,9 @@ def doPhot(image, median, Xs, Ys, hdr):
     return inM, sigma_mag
 
 ######################################################################################################### Grab the bad pixel mask
-masked_array = np.load(top+'bad_pixels.pkl')
-mask = masked_array.mask
+#masked_array = np.load(top+'bad_pixels.pkl')
+#mask = masked_array.mask
+mask = np.load(top+'bad_pixels.pkl')
 ######################################################################################################### Now let's match to the SDSS Calib Field
 Field0 = ascii.read(top+'DR10_SDSS_CALIB_FIELD1.csv')
 #Field1 = Field0[np.where(Field0['rmag'] < 18)]
@@ -196,33 +200,27 @@ image3, median3, ObjName3, band3, std3, hdr3, w3 = GetImage(image000, mask)
 
 # Grab sources in the first image
 threshold = thres*std1
-sources = ph.daofind(image1, threshold=threshold, fwhm=fwhm)#, exclude_border=True) 
+sources = ph.daofind(image1, threshold=threshold, fwhm=fwhm) 
 # Filter out sources close to the edges
 sX, sY = sources['xcentroid'][np.where( (sources['xcentroid']>=20) & (sources['xcentroid']<=1000) & (sources['ycentroid']>=20) & (sources['ycentroid']<=1000) )], sources['ycentroid'][np.where( (sources['xcentroid']>=20) & (sources['xcentroid']<=1000) & (sources['ycentroid']>=20) & (sources['ycentroid']<=1000) )]
-Xs1 = sX#sources['xcentroid']#[np.where(sources['fwhm']<2)]
-Ys1 = sY#sources['ycentroid']#[np.where(sources['fwhm']<2)]
-#Xs1 = Xs1[np.where( (Xs1>=20) & (Xs1<=1000) & (Ys1>=20) & (Ys1<=1000) )]
-#Ys1 = Ys1[np.where( (Xs1>=20) & (Xs1<=1000) & (Ys1>=20) & (Ys1<=1000) )]
+Xs1 = sX
+Ys1 = sY
 
 # Grab sources in the second image
 threshold = thres*std2
-sources = ph.daofind(image2, threshold=threshold, fwhm=fwhm)#, exclude_border=True) 
+sources = ph.daofind(image2, threshold=threshold, fwhm=fwhm)
 # Filter out sources close to the edges
 sX, sY = sources['xcentroid'][np.where( (sources['xcentroid']>=20) & (sources['xcentroid']<=1000) & (sources['ycentroid']>=20) & (sources['ycentroid']<=1000) )], sources['ycentroid'][np.where( (sources['xcentroid']>=20) & (sources['xcentroid']<=1000) & (sources['ycentroid']>=20) & (sources['ycentroid']<=1000) )]
-Xs2 = sX#sources['xcentroid']#[np.where(sources['fwhm']<2)]
-Ys2 = sY#sources['ycentroid']#[np.where(sources['fwhm']<2)]
-#Xs2 = Xs2[np.where( (Xs2>=20) & (Xs2<=1000) & (Ys2>=20) & (Ys2<=1000) )]
-#Ys2 = Ys2[np.where( (Xs2>=20) & (Xs2<=1000) & (Ys2>=20) & (Ys2<=1000) )]
+Xs2 = sX
+Ys2 = sY
 
 # Grab sources in the third image
 threshold = thres*std3
-sources = ph.daofind(image3, threshold=threshold, fwhm=fwhm)#, exclude_border=True)
+sources = ph.daofind(image3, threshold=threshold, fwhm=fwhm)
 # Filter out sources close to the edges
 sX, sY = sources['xcentroid'][np.where( (sources['xcentroid']>=20) & (sources['xcentroid']<=1000) & (sources['ycentroid']>=20) & (sources['ycentroid']<=1000) )], sources['ycentroid'][np.where( (sources['xcentroid']>=20) & (sources['xcentroid']<=1000) & (sources['ycentroid']>=20) & (sources['ycentroid']<=1000) )]
-Xs3 = sX#sources['xcentroid']#[np.where(sources['fwhm']<2)]
-Ys3 = sY#sources['ycentroid']#[np.where(sources['fwhm']<2)]
-#Xs3 = Xs3[np.where( (Xs3>=20) & (Xs3<=1000) & (Ys3>=20) & (Ys3<=1000) )]
-#Ys3 = Ys3[np.where( (Xs3>=20) & (Xs3<=1000) & (Ys3>=20) & (Ys3<=1000) )]
+Xs3 = sX
+Ys3 = sY
 
 #################################### Now let's find sources in common between all the images
 # First convert everything to RADEC for comparison
@@ -266,9 +264,11 @@ overlap1 = overlap(C, M)
 C = [Field0['dec'][0]-1, Field0['dec'][0]+1]
 M = [DECcheck-.1, DECcheck+.1]
 overlap2 = overlap(C, M)
-#print(overlap1, overlap2, overlap1 and overlap2)
+
+# Test which field we are looking at
 if overlap1 and overlap2: Field000 = Field0
 else: Field000 = Field00
+
 Field1 = Field000[np.where( (Field000['gmagerr']< .1) & (Field000['rmagerr']< .1) & (Field000['imagerr']< .1) & (Field000['zmagerr']< .1) )] # Only get good stars
 ###################################
 

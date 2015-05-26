@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/local/bin/env python3
 import numpy as np
 import sys, os, os.path, time, gc, glob
 from astropy.table import Table
@@ -23,6 +23,8 @@ path = top+date+'/'
 #image = 89
 
 ######################################################################################################### Grab the reduced image
+Values = []
+BadPixels = []
 for i in range(1, 29):
     imageData = fits.getdata(path+date+'.f{:0>3}.fits'.format(i))[:,0:1034]
     hdr = fits.getheader(path+date+'.f{:0>3}.fits'.format(i))
@@ -33,9 +35,9 @@ for i in range(1, 29):
         data2 = stats.sigma_clip(imageData, 10)
         print(data2.mask)
         
-        #mask = np.where(imageData < 1500)
-        #maskedarr = np.zeros(imageData.shape, dtype=bool)
-        #maskedarr[mask] = 1
+        mask = np.where(imageData < 10000)
+        maskedarr = np.zeros(imageData.shape, dtype=bool)
+        maskedarr[mask] = 1
         
         plt.figure(101)
         bins = np.logspace(3, 5, 1000)
@@ -43,15 +45,26 @@ for i in range(1, 29):
         plt.hist(data2.compressed(), bins=bins, histtype='step', log=True, color='b')
         plt.xscale('log')
         #plt.hist(imageData.flatten(), bins=np.sqrt(len(imageData.flatten())), histtype='step', log=True)
-        plt.show()
+        #plt.show()
         #sys.exit()
         
+        Values.append(imageData.flatten())
+        # Find bad pixels
+        imageData2 = imageData.flatten()
+        mask2 = np.where(imageData2 < 10000)
+        BadPixels.append(mask2[0])
+        
     else:
-        mask = np.where(imageData < 1500)
+        mask = np.where(imageData < 10000)
         maskedarr2 = np.zeros(imageData.shape, dtype=bool)
         maskedarr2[mask] = 1
         print(np.sum(maskedarr == maskedarr2), len(maskedarr.flatten()), len(maskedarr2.flatten()))
         maskedarr = maskedarr2
+        
+        Values.append(imageData.flatten())
+        imageData2 = imageData.flatten()
+        mask2 = np.where(imageData2 < 10000)
+        BadPixels.append(mask2[0])
     
     fig = plt.figure(10, figsize=(13,13))
     ax = fig.add_subplot(111)
@@ -60,9 +73,34 @@ for i in range(1, 29):
     fig = plt.figure(11, figsize=(13,13))
     ax = fig.add_subplot(111)
     ax.imshow(data2, cmap='Greys', origin='lower', norm=LogNorm())
-    plt.show()
-    sys.exit()
+    #plt.show()
+    #sys.exit()
 
+# Find the common bad pixel values, truly bad pixels should show up in all images
+result = set(BadPixels[0])
+for s in BadPixels[1:]:
+    result.intersection_update(s)
+
+# Put back into a boolean array
+Pixels = np.zeros(len(imageData.flatten()), dtype=np.dtype(bool)) # initialize an empty boolean array
+Pixels[list(result)] = 1  # set the bad pixel values
+Pixels2 = Pixels.reshape(imageData.shape) # reshape array into shape of images
+
+# Dump the mask into a file for future use
+Pixels2.dump(top+'bad_pixels.pkl')
+
+# That should be the last step, everything else is pointless
+sys.exit()
+
+# Plot all the pixel values
+Values = np.array(Values).flatten()
+plt.close('all')
+bins = np.logspace(3, 5, 1000)
+fig = plt.figure(10, figsize=(13,5))
+ax = fig.add_subplot(111)
+ax.hist(Values, bins=bins, histtype='step', log=True, color='r')
+plt.show()
+sys.exit()
     
 sys.exit()
 mean, median, std = stats.sigma_clipped_stats(imageData, sigma=3.0)
