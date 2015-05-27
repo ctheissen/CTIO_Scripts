@@ -91,7 +91,7 @@ def doPhot(image, median, Xs, Ys, hdr):
         if 100 - (flux1/flux2 *100) < 1:
             radius = float(i)
             break
-    if radius == None: radius=14 # This is the optimal aperture size historically. This is just a fix for contaminted areas.
+    if radius == None: radius=10 # This is the optimal aperture size historically. This is just a fix for contaminted areas.
 
     fig = plt.figure(10, figsize=(12,12))
     ax = fig.add_subplot(111)
