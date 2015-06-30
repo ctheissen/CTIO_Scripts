@@ -16,8 +16,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg #canvas
 
 # Things we need to manually input
 date      = '20140321'               # Night we are doing
-start     = [60, 86, 99]           # Starting (g-band) image numbers
-plus      = 3                        # 0 for g-band, 1 for r-band, 2 for i-band, 3 for z-band
+start     = [60, 86, 99]             # Starting (g-band) image numbers
+filter1   = 'g'                      # 'g' for g-band, 'r' for r-band, 'i' for i-band, 'z' for z-band
 airmasses = [1.119, 1.292, 1.652]    # Need to manually input this since it's not in the headers
 
 # Things we don't need to change
@@ -35,6 +35,12 @@ fwhm  = 3.0  # 3.0 usually
 Gain = 2.7  # e/ADU
 RN   = 1.6  # ADU, or 4.0 electrons (this is per pixel). We empirically measured this to be 1.55.
 
+# Convert filter into a numerical input for reading in the correct file
+if filter1   == 'g': plus = 0
+elif filter1 == 'r': plus = 1
+elif filter1 == 'i': plus = 2
+elif filter1 == 'z': plus = 3
+else: raise ValueError('We do not know the filter: %s'%filter1)
 ######################################################################################################### Functions for use
 def overlap(a,b):
     return a[0] <= b[0] <= a[1] or b[0] <= a[0] <= b[1]
