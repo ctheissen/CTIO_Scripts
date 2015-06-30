@@ -27,8 +27,8 @@ thres  = 10.   # 5. usually
 fwhm   = 3.0   # 3.0 usually
 
 # Other params
-Gain = 2.7 # e/ADU
-RN   = 1.6 # ADU, or 4.0 electrons (this is per pixel). We empirically measured this to be 1.55.
+Gain = 2.7  # e/ADU
+RN   = 1.6  # ADU, or 4.0 electrons (this is per pixel). We empirically measured this to be 1.55.
 
 ######################################################################################################### Some functions for use 
 def find_index_of_nearest_xy(x_array, y_array, x_point, y_point):
@@ -50,13 +50,26 @@ def onclickclose(event):
     
 ######################################################################################################### Function to grab the reduced image
 def GetImage(image, mask):
-    imageData = fits.getdata(reducedpath+date+'.{:0>3}.reduced.fits'.format(image))
-    hdr = fits.getheader(reducedpath+date+'.{:0>3}.reduced.fits'.format(image))
-    w = WCS(reducedpath+date+'.{:0>3}.reduced.fits'.format(image))
+    Passed = 0
+    try:
+        imageData = fits.getdata(reducedpath+date+'.{:0>3}.reduced.new'.format(image))
+        hdr = fits.getheader(reducedpath+date+'.{:0>3}.reduced.new'.format(image))
+        w = WCS(reducedpath+date+'.{:0>3}.reduced.new'.format(image))
+        Passed = 1
+    except:
+        print('Trying a different file name.')
+        Passed = 0
+        pass
+    if Passed == 0:
+        try:
+            imageData = fits.getdata(reducedpath+date+'.f{:0>3}.reduced.new'.format(image))
+            hdr = fits.getheader(reducedpath+date+'.f{:0>3}.reduced.new'.format(image))
+            w = WCS(reducedpath+date+'.f{:0>3}.reduced.new'.format(image))
+        except: raise OSError('We do not know that filename: %s'%(reducedpath+date+'.f{:0>3}.reduced.new'.format(image)))
 
     # Parse the header to get the object name
     ObjName = hdr['OBJECT'].split(',')[0].split(' ')[0]
-    band = hdr['FILTER2']
+    band    = hdr['FILTER2']
 
     # Create the masked Image Data
     imageDataM = np.ma.array(imageData, mask=mask)

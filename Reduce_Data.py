@@ -11,15 +11,15 @@ from matplotlib.colors import LogNorm
 # WE CAN MAKE THIS SCRIPT BETTER BY PUTTING ALL THE FILES IN AN ARRAY AND THEN LOOKING AT HEADER INFO FOR EACH FILE TO DO EACH STEP
 
 # Things we need to manually set
-date = '20140128'
-biasrange = range(29,46)
+date       = '20140128'
+biasrange  = range(29,46)
 gflatrange = range(1,8)
 rflatrange = range(8,15)
 iflatrange = range(15,22)
 zflatrange = range(22,29)
 imagerange = range(46,500)
 
-# Things we don't need to change
+# Things we don't typically need to change
 top = '/mnt/Resources/perseus/CTIO_Data/'
 
 # Try to make a directory for the reduced data
@@ -29,12 +29,17 @@ except: pass
 
 ######################################################################################################### First we make a Master bias
 # Try to grab the file
-try: biasData = np.array([fits.getdata(top+date+'/'+date+'.{:0>3}.fits'.format(expId))[:,0:1034] for expId in biasrange])
+Passed = 0 # Set identifier to see if we found the file
+try:
+    biasData = np.array([fits.getdata(top+date+'/'+date+'.{:0>3}.fits'.format(expId))[:,0:1034] for expId in biasrange])
+    Passed = 1
 except:
     print('Trying a different file name.')
+    Passed = 0
     pass
-try: biasData = np.array([fits.getdata(top+date+'/'+date+'.f{:0>3}.fits'.format(expId))[:,0:1034] for expId in biasrange])
-except: print('We do not know that filename')
+if Passed == 0: # We did not find the file the first time.
+    try: biasData = np.array([fits.getdata(top+date+'/'+date+'.f{:0>3}.fits'.format(expId))[:,0:1034] for expId in biasrange])
+    except: raise OSError('We do not know that filename: %s'%(top+date+'/'+date+'.f{:0>3}.fits'.format(expId)))
 
 # Take the median across the cube
 bias = np.median(biasData, axis=0)
@@ -60,10 +65,17 @@ for band in ['g', 'r', 'i', 'z']: # do all the bands
     for expId in ran:
         
         # Try to grab the file
-        try: flatRaw = fits.getdata(top+date+'/'+date+'.{:0>3}.fits'.format(expId))[:,0:1034] # we are omitting bad pixels
-        except: pass
-        try: flatRaw = fits.getdata(top+date+'/'+date+'.f{:0>3}.fits'.format(expId))[:,0:1034] # we are omitting bad pixels
-        except: print('We do not know that filename')
+        Passed = 0 # Set identifier to see if we found the file
+        try:
+            flatRaw = fits.getdata(top+date+'/'+date+'.{:0>3}.fits'.format(expId))[:,0:1034] # we are omitting bad pixels
+            Passed = 1
+        except:
+            print('Trying a different file name.')
+            Passed = 0
+            pass
+        if Passed == 0: # We did not find the file the first time.
+            try: flatRaw = fits.getdata(top+date+'/'+date+'.f{:0>3}.fits'.format(expId))[:,0:1034] # we are omitting bad pixels
+            except: raise OSError('We do not know that filename: %s'%(top+date+'/'+date+'.f{:0>3}.fits'.format(expId)))
             
         # The flatfield exposures need to be debiased, just like the data exposure
         dbFlat = flatRaw - MasterBias
@@ -87,10 +99,10 @@ for band in ['g', 'r', 'i', 'z']: # do all the bands
 # First we need to figure out how many images reside in the directory
 
 AllFiles = glob.glob(top+date+'/*.fits')
-length = len(AllFiles)
+length   = len(AllFiles)
 
 # Read in the Master Flats
-MasterBias = fits.getdata(reducedpath+'MasterBias.fits')
+MasterBias   = fits.getdata(reducedpath+'MasterBias.fits')
 Master_gFlat = fits.getdata(reducedpath+'Master_g_flat.fits')
 Master_rFlat = fits.getdata(reducedpath+'Master_r_flat.fits')
 Master_iFlat = fits.getdata(reducedpath+'Master_i_flat.fits')
@@ -102,17 +114,31 @@ for i in imagerange: # Now we iterate through the rest of the images and apply c
     #if i != 207: continue
 
     # Try to grab the file
-    try: hdr = fits.getheader(top+date+'/'+date+'.{:0>3}.fits'.format(i))
-    except: pass
-    try: hdr = fits.getheader(top+date+'/'+date+'.f{:0>3}.fits'.format(i))
-    except: continue
+    Passed = 0
+    try:
+        hdr = fits.getheader(top+date+'/'+date+'.{:0>3}.fits'.format(i))
+        Passed = 1
+    except:
+        print('Trying a different file name.')
+        Passed = 0
+        pass
+    if Passed == 0:
+        try: hdr = fits.getheader(top+date+'/'+date+'.f{:0>3}.fits'.format(i))
+        except: raise OSError('We do not know that filename: %s'%(top+date+'/'+date+'.f{:0>3}.fits'.format(i)))
         
     # Try to grab the file
     # Get the science data
-    try: scienceRaw = fits.getdata(top+date+'/'+date+'.{:0>3}.fits'.format(i))
-    except: pass
-    try: scienceRaw = fits.getdata(top+date+'/'+date+'.f{:0>3}.fits'.format(i))
-    except: print('We do not know that filename')
+    Passed = 0
+    try:
+        scienceRaw = fits.getdata(top+date+'/'+date+'.{:0>3}.fits'.format(i))
+        Passed = 1
+    except: 
+        print('Trying a different file name.')
+        Passed = 0
+        pass
+    if Passed == 0:
+        try: scienceRaw = fits.getdata(top+date+'/'+date+'.f{:0>3}.fits'.format(i))
+        except: raise OSError('We do not know that filename: %s'%(top+date+'/'+date+'.f{:0>3}.fits'.format(i)))
         
     # Read the header to find out what band the image is of, we also want to keep the info
     band = hdr['FILTER2']

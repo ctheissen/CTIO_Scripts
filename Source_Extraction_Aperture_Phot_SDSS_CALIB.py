@@ -23,17 +23,17 @@ airmasses = [1.119, 1.292, 1.652]    # Need to manually input this since it's no
 # Things we don't need to change
 top         = '/mnt/Resources/perseus/CTIO_Data/' # path to CTIO data
 reducedpath = top+date+'/Reduced_Data/'           # path to reduced CTIO data
-image0    = start[0]+plus                         # starting image for first set of calibrations
-image00   = start[1]+plus                         # starting image for second set of calibrations
-image000  = start[2]+plus                         # starting image for third set of calibrations
+image0      = start[0]+plus                       # starting image for first set of calibrations
+image00     = start[1]+plus                       # starting image for second set of calibrations
+image000    = start[2]+plus                       # starting image for third set of calibrations
 
 # Tweak params for source extraction if we need to
-thres = 5.  # 5. usually
-fwhm = 3.0  # 3.0 usually
+thres = 5.   # 5. usually
+fwhm  = 3.0  # 3.0 usually
 
 # Other params that are used
-Gain = 2.7 # e/ADU
-RN = 1.6 # ADU, or 4.0 electrons (this is per pixel). We empirically measured this to be 1.55.
+Gain = 2.7  # e/ADU
+RN   = 1.6  # ADU, or 4.0 electrons (this is per pixel). We empirically measured this to be 1.55.
 
 ######################################################################################################### Functions for use
 def overlap(a,b):
@@ -77,13 +77,27 @@ def onclickclose(event):
 
 ######################################################################################################### Function to grab the reduced image
 def GetImage(image, mask):
-    imageData = fits.getdata(reducedpath+date+'.{:0>3}.reduced.new'.format(image))
-    hdr = fits.getheader(reducedpath+date+'.{:0>3}.reduced.new'.format(image))
-    w = WCS(reducedpath+date+'.{:0>3}.reduced.new'.format(image))
+    Passed = 0
+    try:
+        imageData = fits.getdata(reducedpath+date+'.{:0>3}.reduced.new'.format(image))
+        hdr = fits.getheader(reducedpath+date+'.{:0>3}.reduced.new'.format(image))
+        w = WCS(reducedpath+date+'.{:0>3}.reduced.new'.format(image))
+        Passed = 1
+    except:
+        print('Trying a different file name.')
+        Passed = 0
+        pass
+    if Passed == 0:
+        try:
+            imageData = fits.getdata(reducedpath+date+'.f{:0>3}.reduced.new'.format(image))
+            hdr = fits.getheader(reducedpath+date+'.f{:0>3}.reduced.new'.format(image))
+            w = WCS(reducedpath+date+'.f{:0>3}.reduced.new'.format(image))
+        except: raise OSError('We do not know that filename: %s'%(reducedpath+date+'.f{:0>3}.reduced.new'.format(image)))
+    
 
     # Parse the header to get the object name
     ObjName = hdr['OBJECT'].split(',')[0].split(' ')[0]
-    band = hdr['FILTER2']
+    band    = hdr['FILTER2']
 
     # Create the masked Image Data
     imageDataM = np.ma.array(imageData, mask=mask)
@@ -290,6 +304,7 @@ print(len(xSDSS), len(ySDSS), len(indicesSDSS))
 XsM = []
 YsM = []
 
+# Start a figure to plot the image
 fig = plt.figure(10, figsize=(12,12))
 ax = fig.add_subplot(111)
 ax.imshow(image1, aspect='equal', cmap='Greys', norm=LogNorm())
@@ -387,7 +402,7 @@ unMags0_1 = np.sqrt(unMags1[~np.isnan(Ks)][~filtered_data0.mask]**2 + airmasses[
 # Just take the SDSS stars we care about
 Field11 = Field1[np.where( (xSDSS2 > 0) & (xSDSS2 < 1034) & (ySDSS2 > 0) & (ySDSS2 < 1034) )][indicesSDSS][~np.isnan(Ks)][~filtered_data0.mask]
 #print(Field11['rmag'])
-if band1 == 'g': TrueMags, unTrueMags = Field11['gmag'], Field11['gmagerr']
+if band1   == 'g': TrueMags, unTrueMags = Field11['gmag'], Field11['gmagerr']
 elif band1 == 'r': TrueMags, unTrueMags = Field11['rmag'], Field11['rmagerr']
 elif band1 == 'i': TrueMags, unTrueMags = Field11['imag'], Field11['imagerr']
 elif band1 == 'z': TrueMags, unTrueMags = Field11['zmag'], Field11['zmagerr']
@@ -411,7 +426,7 @@ plt.show()
 
 # Filter again? (Not sure I should do this, feels like fudging the numbers)
 filtered_data00 = stats.sigma_clip(deltaMag, 2, None)
-filtered_data2 = filtered_data00[~filtered_data00.mask]
+filtered_data2  = filtered_data00[~filtered_data00.mask]
 print(deltaMag)
 print(np.mean(deltaMag), np.std(deltaMag)/np.sqrt(len(deltaMag)))
 print(np.mean(filtered_data2), np.std(filtered_data2)/np.sqrt(len(filtered_data2)))
