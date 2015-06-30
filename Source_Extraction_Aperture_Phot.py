@@ -52,9 +52,9 @@ def onclickclose(event):
 def GetImage(image, mask):
     Passed = 0
     try:
-        imageData = fits.getdata(reducedpath+date+'.{:0>3}.reduced.new'.format(image))
-        hdr = fits.getheader(reducedpath+date+'.{:0>3}.reduced.new'.format(image))
-        w = WCS(reducedpath+date+'.{:0>3}.reduced.new'.format(image))
+        imageData = fits.getdata(reducedpath+date+'.{:0>3}.reduced.fits'.format(image))
+        hdr = fits.getheader(reducedpath+date+'.{:0>3}.reduced.fits'.format(image))
+        w = WCS(reducedpath+date+'.{:0>3}.reduced.fits'.format(image))
         Passed = 1
     except:
         print('Trying a different file name.')
@@ -62,10 +62,10 @@ def GetImage(image, mask):
         pass
     if Passed == 0:
         try:
-            imageData = fits.getdata(reducedpath+date+'.f{:0>3}.reduced.new'.format(image))
-            hdr = fits.getheader(reducedpath+date+'.f{:0>3}.reduced.new'.format(image))
-            w = WCS(reducedpath+date+'.f{:0>3}.reduced.new'.format(image))
-        except: raise OSError('We do not know that filename: %s'%(reducedpath+date+'.f{:0>3}.reduced.new'.format(image)))
+            imageData = fits.getdata(reducedpath+date+'.f{:0>3}.reduced.fits'.format(image))
+            hdr = fits.getheader(reducedpath+date+'.f{:0>3}.reduced.fits'.format(image))
+            w = WCS(reducedpath+date+'.f{:0>3}.reduced.fits'.format(image))
+        except: raise OSError('We do not know that filename: %s'%(reducedpath+date+'.f{:0>3}.reduced.fits'.format(image)))
 
     # Parse the header to get the object name
     ObjName = hdr['OBJECT'].split(',')[0].split(' ')[0]

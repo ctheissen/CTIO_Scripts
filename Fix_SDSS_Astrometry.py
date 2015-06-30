@@ -32,7 +32,7 @@ for File in files:
     print(infile) # Print just for sanity check
     Passed = 0
     try:
-        command = "solve-field --no-plots --no-verify --ra %s --dec %s --radius 1 %s"%(c.ra.degree, c.dec.degree, infile)
+        command = "solve-field --no-plots --overwrite --no-verify --ra %s --dec %s --radius 1 %s"%(c.ra.degree, c.dec.degree, infile)
         os.system(command)
         Passed = 1
     except:
@@ -42,7 +42,7 @@ for File in files:
     if Passed == 0:
         try:
             infile = reducedpath+date+'.f{:0>3}.reduced.fits'.format(File)
-            command = "solve-field --no-plots --no-verify --ra %s --dec %s --radius 1 %s"%(c.ra.degree, c.dec.degree, infile)
+            command = "solve-field --no-plots --overwrite --no-verify --ra %s --dec %s --radius 1 %s"%(c.ra.degree, c.dec.degree, infile)
             os.system(command)
     except: raise OSError('We do not know that filename: %s'%(reducedpath+date+'.f{:0>3}.reduced.fits'.format(File)))
 #########################################################################################################
