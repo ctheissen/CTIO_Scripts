@@ -14,9 +14,9 @@ from astropy.wcs import WCS
 from pylab import get_current_fig_manager
 
 # Things we need to input
-date        = '20140321'  # Night of the observations
-image       = 163          # Which object are we doing?
-airmass     = 1.301       # What is the airmass?
+date        = '20140128'  # Night of the observations
+image       = 194          # Which object are we doing?
+airmass     = 1.096       # What is the airmass?
 
 # Things we don't need to input
 top         = '/mnt/Resources/perseus/CTIO_Data/'
@@ -24,7 +24,8 @@ reducedpath = top+date+'/Reduced_Data/'
 
 # Tweak params for source extraction if we need to
 thres  = 10.   # 5. usually
-fwhm   = 3.0   # 3.0 usually
+fwhm   = 1.0   # 3.0 usually
+sigma1 = 10.
 
 # Other params
 Gain = 2.7  # e/ADU
@@ -202,7 +203,7 @@ thismanager.window.wm_geometry("+1100+0")
 # Choose how to do source extraction
 threshold = thres*std1
 #sources = ph.irafstarfind(imageDataRed, threshold=threshold, fwhm=fwhm)#, exclude_border=True) 
-sources = ph.daofind(image1, threshold=threshold, fwhm=fwhm)#, exclude_border=True) 
+sources = ph.daofind(image1, threshold=threshold, fwhm=fwhm, sigma_radius=sigma1)#, exclude_border=True) 
 #print(sources)
 
 # Put a mask here that we might not need anymore

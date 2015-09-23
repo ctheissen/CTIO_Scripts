@@ -12,9 +12,9 @@ from matplotlib.colors import LogNorm
 from astropy.wcs import WCS
 
 # Things we need to manually input
-date      = '20140321'                                         # Night we are doing
-files     = [60,61,62,63,86,87,88,89,99,100,101,102]           # List of SDSS calibration files numbers
-ra, dec   = '08h34m42.3s', '-03d31m34.7s'                      # RA and DEC of calibraion field (this reduces how long Astrometry.net takes to solve)
+date      = '20140617'                                         # Night we are doing
+files     = [42,43,44,45,60,61,62,63,149,150,151,152]           # List of SDSS calibration files numbers
+ra, dec   = '14h59m59.7s', '-00d36m02.3s'                      # RA and DEC of calibraion field (this reduces how long Astrometry.net takes to solve)
 
 # Things we don't typically need to change
 top         = '/mnt/Resources/perseus/CTIO_Data/' # path to CTIO data
@@ -44,5 +44,5 @@ for File in files:
             infile = reducedpath+date+'.f{:0>3}.reduced.fits'.format(File)
             command = "solve-field --no-plots --overwrite --no-verify --ra %s --dec %s --radius 1 %s"%(c.ra.degree, c.dec.degree, infile)
             os.system(command)
-    except: raise OSError('We do not know that filename: %s'%(reducedpath+date+'.f{:0>3}.reduced.fits'.format(File)))
+        except: raise OSError('We do not know that filename: %s'%(reducedpath+date+'.f{:0>3}.reduced.fits'.format(File)))
 #########################################################################################################

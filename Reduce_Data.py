@@ -12,12 +12,12 @@ from matplotlib.colors import LogNorm
 
 # Things we need to manually set
 date       = '20140128'
-biasrange  = range(29,46)
+biasrange  = range(294,305)
 gflatrange = range(1,8)
 rflatrange = range(8,15)
 iflatrange = range(15,22)
 zflatrange = range(22,29)
-imagerange = range(46,500)
+imagerange = range(29,294)
 
 # Things we don't typically need to change
 top = '/mnt/Resources/perseus/CTIO_Data/'

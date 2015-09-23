@@ -13,12 +13,14 @@ import pylab as py
 from astropy.wcs import WCS
 import matplotlib.figure as mfigure
 from matplotlib.backends.backend_agg import FigureCanvasAgg #canvas
+from sklearn.cross_validation import train_test_split
 
 # Things we need to manually input
-date      = '20140321'               # Night we are doing
-start     = [60, 86, 99]             # Starting (g-band) image numbers
-filter1   = 'g'                      # 'g' for g-band, 'r' for r-band, 'i' for i-band, 'z' for z-band
-airmasses = [1.119, 1.292, 1.652]    # Need to manually input this since it's not in the headers
+date      = '20140128'               # Night we are doing
+start     = [99, 116, 162]             # Starting (g-band) image numbers
+filter1   = 'z'                      # 'g' for g-band, 'r' for r-band, 'i' for i-band, 'z' for z-band
+airmasses = [1.413, 1.198, 1.121]    # Need to manually input this since it's not in the headers
+magcut    = 0                       # magnitude cutoff for the calibration
 
 # Things we don't typically need to change
 top         = '/mnt/Resources/perseus/CTIO_Data/' # path to CTIO data
@@ -27,10 +29,11 @@ reducedpath = top+date+'/Reduced_Data/'           # path to reduced CTIO data
 # Tweak params for source extraction if we need to
 thres = 5.   # 5. usually
 fwhm  = 3.0  # 3.0 usually
+sigclip = 2.5 # How many sigma to clip
 
 # Other params that are used
-Gain = 2.7  # e/ADU
-RN   = 1.6  # ADU, or 4.0 electrons (this is per pixel). We empirically measured this to be 1.55.
+Gain    = 2.7  # e/ADU
+RN      = 1.6  # ADU, or 4.0 electrons (this is per pixel). We empirically measured this to be 1.55.
 
 # Convert filter into a numerical input for reading in the correct file
 if filter1   == 'g': plus = 0
@@ -208,9 +211,10 @@ def doPhot(image, median, Xs, Ys, hdr):
 #mask = masked_array.mask
 mask = np.load(top+'bad_pixels.pkl')
 ######################################################################################################### Now let's match to the SDSS Calib Field
-Field0 = ascii.read(top+'DR10_SDSS_CALIB_FIELD1.csv')
+Field0 = ascii.read(top+'DR10_SDSS_CALIB_FIELD1_4.csv')
 #Field1 = Field0[np.where(Field0['rmag'] < 18)]
-Field00 = ascii.read(top+'DR10_SDSS_CALIB_FIELD2.csv')
+Field00 = ascii.read(top+'DR10_SDSS_CALIB_FIELD2_4.csv')
+#Field00 = ascii.read(top+'DR10_SDSS_CALIB_FIELD3.csv')
 #Field3 = Field2[np.where(Field2['rmag'] < 18)]
 ######################################################################################################### Start the show
 
@@ -290,10 +294,12 @@ overlap2 = overlap(C, M)
 if overlap1 and overlap2: Field000 = Field0
 else: Field000 = Field00
 
-Field1 = Field000[np.where( (Field000['gmagerr']< .1) & (Field000['rmagerr']< .1) & (Field000['imagerr']< .1) & (Field000['zmagerr']< .1) )] # Only get good stars
+#Field1 = Field000[np.where( (Field000['gmagerr']< .1) & (Field000['rmagerr']< .1) & (Field000['imagerr']< .1) & (Field000['zmagerr']< .1) )] # Only get good stars
+Field1 = Field000
 ###################################
 
 xSDSS2, ySDSS2 = w1.wcs_world2pix(Field1['ra'], Field1['dec'], 0)
+#print('Test0', xSDSS2, ySDSS2)
 #print(len(Field1), len(xSDSS2))
 xSDSS = xSDSS2[np.where( (xSDSS2 > 0) & (xSDSS2 < 1034) & (ySDSS2 > 0) & (ySDSS2 < 1034) )]
 ySDSS = ySDSS2[np.where( (xSDSS2 > 0) & (xSDSS2 < 1034) & (ySDSS2 > 0) & (ySDSS2 < 1034) )]
@@ -302,6 +308,7 @@ ySDSS = ySDSS2[np.where( (xSDSS2 > 0) & (xSDSS2 < 1034) & (ySDSS2 > 0) & (ySDSS2
 # Now let's match up our selections to extracted sources
 indicesSDSS = []
 for x, y in zip(Xs1.data[indices1], Ys1.data[indices1]):
+    #print('TEST', x, y, xSDSS, ySDSS)
     if find_index_of_nearest_xy2(xSDSS, ySDSS, x, y) == None: continue
     else: indicesSDSS.append(find_index_of_nearest_xy2(xSDSS, ySDSS, x, y))
 
@@ -364,35 +371,49 @@ Ks = []
 fig = plt.figure(555)
 fig.canvas.mpl_connect('button_press_event', onclickclose)
 for i in range(len(Mags1)):
-    x = airmasses
-    y = [Mags1[i], Mags2[i], Mags3[i]]
-    yerr = [unMags1[i], unMags2[i], unMags3[i]]
+    #x = airmasses
+    #y = [Mags1[i], Mags2[i], Mags3[i]]
+    #yerr = [unMags1[i], unMags2[i], unMags3[i]]
+    indices = np.argsort(airmasses)
+    x = np.array(airmasses)[indices]
+    y = np.array([Mags1[i], Mags2[i], Mags3[i]])[indices]
+    yerr = np.array([unMags1[i], unMags2[i], unMags3[i]])[indices]
+    #Ys = np.array([Mags1[i], Mags2[i], Mags3[i]])[indices] + 20
+    #YsErr = np.array([unMags1[i], unMags2[i], unMags3[i]])[indices]
+    #y = Ys / Ys[0]
+    #print(x)
+    #print(y)
+    #yerr = np.array([np.sqrt(2)*unMags1[i]/Mags1[i], np.sqrt( unMags2[i]**2/Mags1[i]**2 + unMags1[i]**2*Mags2[i]**2/Mags1[i]**4 ), np.sqrt( unMags3[i]**2/Mags1[i]**2 + unMags1[i]**2*Mags3[i]**2/Mags1[i]**4 )])
+    #yerr = np.array([np.sqrt(2)*YsErr[0]/Ys[0], np.sqrt( YsErr[1]**2/Ys[0]**2 + YsErr[0]**2*Ys[1]**2/Ys[0]**4 ), np.sqrt( YsErr[2]**2/Ys[0]**2 + YsErr[0]**2*Ys[2]**2/Ys[0]**4 )])
     z = np.polyfit(x, y, 1, w = 1/np.array(yerr)**2)
-    print('COEFFS:', z)
+    #print('COEFFS:', z)
     p = np.poly1d(z)
     xp = np.linspace(0, 2)
-    plt.errorbar(x, y, yerr = yerr, fmt='o')
-    plt.plot(xp, p(xp))
+    plt.errorbar(x, y, yerr = yerr, fmt='o', alpha=0.5)
+    plt.plot(xp, p(xp), alpha=0.5)
     Ks.append(z[0])
-#plt.show()
+plt.show()
+#sys.exit()
 
 # Remove the NaNs and make some sigma clipped data
 #print('Ks', Ks, len(Ks))
 Ks = np.array(Ks)
 Ks2 = Ks[~np.isnan(Ks)]
-filtered_data0 = stats.sigma_clip(Ks2, 2, None)
+#Ks2 = Ks2[Ks2 > 0]
+filtered_data0 = stats.sigma_clip(Ks2, sigclip, None)
 filtered_data = filtered_data0[~filtered_data0.mask]
 
 plt.close()
 fig = plt.figure(555)
 fig.canvas.mpl_connect('button_press_event', onclickclose)
-plt.hist(Ks2, histtype='step', color='r')
-plt.hist(filtered_data, histtype='step', color='b')
+plt.hist(Ks2, bins = np.sqrt(len(Ks2)), histtype='step', color='r')
+plt.hist(filtered_data, bins = np.sqrt(len(filtered_data)), histtype='step', color='b')
 print(np.mean(Ks2), np.median(Ks2), np.std(Ks2), np.std(Ks2)/np.sqrt(len(Ks2)))
 print(np.mean(filtered_data), np.median(filtered_data), np.std(filtered_data), np.std(filtered_data)/np.sqrt(len(filtered_data)))
 plt.legend(['Unfiltered','Filtered'])
 plt.xlabel('Extinction Coefficient')
 plt.ylabel('Number')
+plt.title(r'$%s \pm %s$'%(np.mean(filtered_data), np.std(filtered_data)/np.sqrt(len(filtered_data))))
 plt.show()
 
 K = np.mean(filtered_data)
@@ -400,7 +421,7 @@ unK = np.std(filtered_data)/np.sqrt(len(filtered_data))
 print('Number of stars used for extinction calibration: %s'%len(filtered_data))
 
 # Now we take our K value and extrapolate to zero atmosphere, then compare to SDSS magnitude
-Mags0_1 = Mags1[~np.isnan(Ks)][~filtered_data0.mask]  - K*airmasses[0]
+Mags0_1 = Mags1[~np.isnan(Ks)][~filtered_data0.mask] - K*airmasses[0]
 unMags0_1 = np.sqrt(unMags1[~np.isnan(Ks)][~filtered_data0.mask]**2 + airmasses[0]**2*unK**2)
 #print(Mags0_1, unMags0_1)
 
@@ -421,18 +442,89 @@ print('COEFFS:', z)
 p = np.poly1d(z)
 xp = np.linspace(TrueMags.min(), TrueMags.max())
 
+######### New part
+print(Mags0_1 - p(TrueMags))
+cleaned = stats.sigma_clip(Mags0_1 - p(TrueMags), sigclip, None)
+print(cleaned)
+indices = np.where(Mags0_1 - p(TrueMags) == cleaned)
+print(indices)
+deltaMag = TrueMags[indices[0]] - Mags0_1[indices[0]]
+z = np.polyfit(TrueMags[indices[0]], Mags0_1[indices[0]], 1)
+print('COEFFS:', z)
+sklearn_poly = np.poly1d(z)
+#########
+#sys.exit()
+######################################## Now we do some machine learning for the line fit
+
+def outlierCleaner(predictions, ages, net_worths):
+    """
+        clean away the 10% of points that have the largest
+        residual errors (different between the prediction
+        and the actual net worth)
+
+        return a list of tuples named cleaned_data where 
+        each tuple is of the form (age, net_worth, error)
+    """
+    
+    #calculate the error,make it descend sort, and fetch 90% of the data
+    
+    errors = (net_worths-predictions)**2
+    cleaned_data =zip(ages,net_worths,errors)
+    cleaned_data = sorted(cleaned_data,key=lambda x:x[2][0], reverse=True)
+    limit = int(len(net_worths)*0.15)
+    
+    
+    return cleaned_data[limit:]
+#########################
+"""
+TrueMags = np.reshape( np.array(TrueMags), (len(TrueMags), 1))
+Mags0_1  = np.reshape( np.array(Mags0_1), (len(Mags0_1), 1))
+TrueMags_train, TrueMags_test, Mags0_1_train, Mags0_1_test = train_test_split(TrueMags, Mags0_1, test_size=0.1, random_state=42)
+
+from sklearn import linear_model
+reg = linear_model.LinearRegression()
+reg.fit(TrueMags_train,Mags0_1_train)
+print('COEFFS2', reg.coef_, reg.intercept_)
+
+clf_after_cleaned = linear_model.LinearRegression()
+cleaned_d = outlierCleaner(reg.predict(TrueMags_train), TrueMags_train, Mags0_1_train)    
+TrueMags_cleaned = np.array([e[0] for e in cleaned_d])
+Mags0_1_cleaned = np.array([e[1] for e in cleaned_d])
+
+# Apply a magnitude cut on the remaining stars
+if magcut != 0:
+    Mags0_1_cleaned  = Mags0_1_cleaned[np.where(TrueMags_cleaned <= magcut)]
+    TrueMags_cleaned = TrueMags_cleaned[np.where(TrueMags_cleaned <= magcut)]
+print('Number left:', len(TrueMags_cleaned), len(Mags0_1_cleaned))
+
+TrueMags_cleaned = np.reshape( np.array(TrueMags_cleaned), (len(TrueMags_cleaned), 1))
+Mags0_1_cleaned  = np.reshape( np.array(Mags0_1_cleaned), (len(Mags0_1_cleaned), 1))
+
+clf_after_cleaned.fit(TrueMags_cleaned, Mags0_1_cleaned)
+
+print('COEFFS2', clf_after_cleaned.coef_, clf_after_cleaned.intercept_)
+sklearn_poly = np.poly1d([clf_after_cleaned.coef_[0][0], clf_after_cleaned.intercept_[0]])
+
+deltaMag = TrueMags_cleaned - Mags0_1_cleaned
+"""
+######################################## Finish machine learning bit
+
 plt.close()
 fig = plt.figure(555)
 fig.canvas.mpl_connect('button_press_event', onclickclose)
 plt.errorbar(TrueMags, Mags0_1, xerr = unTrueMags, yerr=unMags0_1, ls='None')
-plt.plot(xp, p(xp), 'r--')
+plt.plot(xp, p(xp), 'r--', alpha=0.5)
+try: plt.plot(xp, sklearn_poly(xp), 'g--', alpha=0.5)
+except: pass
+#plt.plot(xp, xp, 'k:', alpha=0.5)
 plt.xlabel('SDSS Mag')
 plt.ylabel('Instrumental Mag (Outside Atmosphere)')
 plt.show()
 
+#sys.exit()
 
 # Filter again? (Not sure I should do this, feels like fudging the numbers)
-filtered_data00 = stats.sigma_clip(deltaMag, 2, None)
+filtered_data00 = stats.sigma_clip(deltaMag, sigclip, None)
 filtered_data2  = filtered_data00[~filtered_data00.mask]
 print(deltaMag)
 print(np.mean(deltaMag), np.std(deltaMag)/np.sqrt(len(deltaMag)))
@@ -444,12 +536,28 @@ print('Number of stars used for magnitude calibration: %s'%len(filtered_data2))
 plt.close()
 fig = plt.figure(555)
 fig.canvas.mpl_connect('button_press_event', onclickclose)
-plt.hist(deltaMag, histtype='step', color='r')
-plt.hist(filtered_data2, histtype='step', color='b')
+plt.hist(deltaMag, bins = np.sqrt(len(deltaMag)), histtype='step', color='r')
+plt.hist(filtered_data2, bins = np.sqrt(len(filtered_data2)), histtype='step', color='b')
 plt.legend(['Unfiltered','Filtered'])
 plt.xlabel('Delta Mag')
 plt.ylabel('Number')
+plt.title(r'$%s \pm %s$'%(np.mean(filtered_data2), np.std(filtered_data2)/np.sqrt(len(filtered_data2))))
 plt.show()
+
+################# This is the new part to get the measured and SDSS magnitudes (and RADEC)
+"""
+#indices = np.where(TrueMags == TrueMags[indices[0]])
+print(Field11['ra'])#[indices])
+print(Field11['dec'])#[indices])
+print(DeltaM+Mags0_1)
+unTrueMag = np.sqrt(unMags0_1**2 + unDeltaM**2 + np.min(airmasses)**2*unK**2)
+print(unTrueMag)
+t = Table([Field11['ra'], Field11['dec'], TrueMags, unTrueMags, DeltaM+Mags0_1, unTrueMag], names=('ra', 'dec', '%sSDSS'%band1, '%sSDSSerr'%band1, '%sCTIO'%band1, '%sCTIOerr'%band1))
+t.write('SDSStest_%s_r.fits'%band1, overwrite=True)
+print(t)
+#sys.exit()
+"""
+#################
 
 print(band1, band2, band3)
 print(band1, K, unK, DeltaM, unDeltaM)
